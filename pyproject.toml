@@ -1,0 +1,43 @@
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '''
+# A regex preceded with ^/ will apply only to files and directories
+# in the root of the project.
+^/migrations/
+'''
+
+[tool.pylint.MASTER]
+load-plugins = "pylint_django"
+django-settings-module = "src.settings"
+
+[tool.pylint.FORMAT]
+max-line-length = 88
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-docstring",
+    "invalid-name",
+]
+
+[tool.pylint.DESIGN]
+max-parents = 13
+
+[tool.pylint.TYPECHECK]
+generated-members = "REQUEST,acl_users,aq_parent,objects,DoesNotExist,id,pk,_meta,base_fields,context"
+
+[tool.poetry]
+name = "anitube-website-api"
+version = "0.1.0"
+description = ""
+authors = ["Ayoub Anjaimi <aanjaimi@student.1337.ma>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -2,6 +2,7 @@
 Django>=4.2.0
 social-auth-app-django>=5.4.0  # This is the social_django package
 djangorestframework>=3.14.0
+pre-commit>=4.0.0
 
 # Development tools
 black>=23.11.0

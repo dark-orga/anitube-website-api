@@ -6,10 +6,7 @@ set -o errexit
 pip install -r requirements.txt
 
 # Convert static asset files
-python backend/manage.py collectstatic --no-input
+python manage.py collectstatic --no-input
 
 # Apply any outstanding database migrations
-python backend/manage.py migrate
-
-# go to the backend directory
-cd backend
+python manage.py migrate

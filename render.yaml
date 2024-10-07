@@ -1,8 +1,8 @@
 databases:
-  - name: backend
+  - name: anitube-website
     plan: free
     databaseName: anitube_website_db
-    user: mysite
+    user: anitube_website_db_user
 
 services:
   - type: web

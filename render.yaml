@@ -12,11 +12,11 @@ services:
     buildCommand: "./build.sh"
     startCommand: "python -m gunicorn backend.asgi:application -k uvicorn.workers.UvicornWorker"
     envVars:
-      - key: "postgresql://anitube_website_db_user:rKwK56q345AO54tKDjVNPF2RKHVb59xv@dpg-cs25hre8ii6s739cf96g-a.oregon-postgres.render.com/anitube_website_db"
+      - key: DATABASE_URL
         fromDatabase:
           name: anitube_website_db
           property: connectionString
-      - key: "postgresql://anitube_website_db_user:rKwK56q345AO54tKDjVNPF2RKHVb59xv@dpg-cs25hre8ii6s739cf96g-a.oregon-postgres.render.com/anitube_website_db" # to change
+      - key: SECRET_KEY
         generateValue: true
       - key: WEB_CONCURRENCY
         value: 4

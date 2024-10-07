@@ -10,3 +10,6 @@ python backend/manage.py collectstatic --no-input
 
 # Apply any outstanding database migrations
 python backend/manage.py migrate
+
+# go to the backend directory
+cd backend

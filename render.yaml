@@ -10,7 +10,7 @@ services:
     name: backend
     runtime: python
     buildCommand: "./build.sh"
-    startCommand: "cd backend && python -m gunicorn backend.asgi:application -k uvicorn.workers.UvicornWorker"    envVars:
+    startCommand: "python -m gunicorn backend.asgi:application -k uvicorn.workers.UvicornWorker"    envVars:
       - key: postgresql://user:password@localhost:5432/dbname
         fromDatabase:
           name: postgres

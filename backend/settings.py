@@ -34,6 +34,7 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 # ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 ALLOWED_HOSTS = [
     "localhost",
+    "https://backend-5yk8.onrender.com/",
 ]
 
 # Application definition

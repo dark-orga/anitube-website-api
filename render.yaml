@@ -1,7 +1,7 @@
 databases:
   - name: backend
     plan: free
-    databaseName: postgres
+    databaseName: anitube_website_db
     user: mysite
 
 services:
@@ -12,11 +12,11 @@ services:
     buildCommand: "./build.sh"
     startCommand: "python -m gunicorn backend.asgi:application -k uvicorn.workers.UvicornWorker"
     envVars:
-      - key: postgresql://user:password@localhost:5432/dbname
+      - key: "postgresql://anitube_website_db_user:rKwK56q345AO54tKDjVNPF2RKHVb59xv@dpg-cs25hre8ii6s739cf96g-a.oregon-postgres.render.com/anitube_website_db"
         fromDatabase:
-          name: postgres
+          name: anitube_website_db
           property: connectionString
-      - key: postgresql://user:password@localhost:5432/dbname # to change
+      - key: "postgresql://anitube_website_db_user:rKwK56q345AO54tKDjVNPF2RKHVb59xv@dpg-cs25hre8ii6s739cf96g-a.oregon-postgres.render.com/anitube_website_db" # to change
         generateValue: true
       - key: WEB_CONCURRENCY
         value: 4

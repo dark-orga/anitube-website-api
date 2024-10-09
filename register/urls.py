@@ -1,7 +1,8 @@
 from django.urls import path
 
-from . import views
+from .views import GoogleCallbackAPI, GoogleLoginAPI
 
 urlpatterns = [
-    path("", views.index, name="index"),
+    path("auth/google/", GoogleLoginAPI.as_view(), name="google-login"),
+    path("auth/google/callback/", GoogleCallbackAPI.as_view(), name="google-callback"),
 ]

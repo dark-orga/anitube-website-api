@@ -1,0 +1,28 @@
+version: "3.7"
+
+services:
+  # backend:
+  #   container_name: anitube_website_backend
+  #   build:
+  #     context: .
+  #   restart: on-failure
+  #   env_file:
+  #     - ".env"
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     - anitube_website_db
+
+  anitube_website_db:
+    container_name: anitube_website_db
+    image: postgres
+    restart: on-failure
+    env_file:
+      - ".env"
+    volumes:
+      - "db-data:/var/lib/postgresql/data"
+    ports:
+      - "5432:5432"
+
+volumes:
+  db-data:

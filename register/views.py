@@ -1,145 +1,98 @@
-# import jwt
-# import os
 
-# from django.contrib.auth import logout
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from google.auth.transport import requests
 from google.oauth2 import id_token
-
-# from google.auth.oauthlib.id_token import verify_oauth2_token
-# from django.http import HttpResponse
-# from rest_framework import status
-# from rest_framework.response import Response
-# from rest_framework.views import APIView
-# from rest_framework_simplejwt.tokens import RefreshToken
-# from social_core.exceptions import AuthException, MissingBackend
-# from social_django.utils import load_backend, load_strategy
-
-
-# def index(request):
-#     return HttpResponse("Hello, world. You're at the register index.")
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+from social_core.exceptions import AuthException, MissingBackend
+from social_django.utils import load_backend, load_strategy
+from .serializers import UserSerializer
+import jwt, datetime, os, requests
+from .models import User
+from rest_framework.exceptions import AuthenticationFailed
 
 
-# class GoogleLoginAPI(APIView):
-#     def get(self, request):
-#         return Response({"message": "Google login"})
-#         strategy = load_strategy(request)
-#         backend = load_backend(
-#             strategy=strategy,
-#             name="google-oauth2",
-#             redirect_uri="https://profile.intra.42.fr/users/aanjaimi",
-#         )
 
-#         authorization_url = backend.auth_url()
-#         return Response({"authorization_url": authorization_url})
+class RegisterAPI(APIView):
+    def post(self, request):
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class LoginAPI(APIView):
+    def post(self, request):
+        print(request.data)
+        email = request.data['email']
+        password = request.data['password']
 
+        # user = authenticate(email=email, password=password)
+        user = User.objects.filter(email=email).first()
 
-# class GoogleCallbackAPI(APIView):
-#     def get(self, request):
-#         code = request.GET.get("code", None)
-#         if code is None:
-#             return Response(
-#                 {"error": "Code not found"}, status=status.HTTP_400_BAD_REQUEST
-#             )
+        if user is None:
+            raise AuthenticationFailed('User not found!')
 
-#         try:
-#             strategy = load_strategy(request)
-#             backend = load_backend(
-#                 strategy=strategy,
-#                 name="google-oauth2",
-#                 redirect_uri="https://profile.intra.42.fr/users/aanjaimi",
-#             )
+        if not user.check_password(password):
+            raise AuthenticationFailed('Incorrect password!')
 
-#             # Complete the authentication process
-#             user = backend.complete(request=request)
+        payload = {
+            'id': user.id,
+            'username': user.username,
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=60),
+            'iat': datetime.datetime.utcnow()
+        }
 
-#             # Create JWT tokens
-#             refresh = RefreshToken.for_user(user)
-#             access_token = str(refresh.access_token)
+        token = jwt.encode(payload, 'secret', algorithm='HS256')
 
-#             # Return tokens and user data
-#             return Response(
-#                 {
-#                     "access_token": access_token,
-#                     "refresh_token": str(refresh),
-#                     "user": {
-#                         "id": user.id,
-#                         "email": user.email,
-#                         "name": user.get_full_name(),
-#                     },
-#                 }
-#             )
+        response = Response()
 
-#         except (MissingBackend, AuthException) as e:
-#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        response.set_cookie(key='jwt', value=token, httponly=True)
+        response.data = {
+            'jwt': token
+        }
 
+        return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
 
-@csrf_exempt
-def sign_in(request):
-    return render(request, "home.html")
+class Login42API(APIView):
+    def post(self, request):
+        code = request.data.get('code')
+        if not code:
+            return Response({'error': 'Code not provided.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": os.getenv("SOCIAL_AUTH_FORTYTWO_KEY"),
+            "client_secret": os.getenv("SOCIAL_AUTH_FORTYTWO_SECRET"),
+            "redirect_uri": "http://localhost:3000/",
+            "code": code,
+        }
 
-@csrf_exempt
-def auth_receiver(request):
-    """
-    Google calls this URL after the user has signed in with their Google account.
-    """
-    token = request.POST["credential"]
+        try:
+            response = requests.post("https://api.intra.42.fr/oauth/token/", data=data)
+            response_data = response.json()
 
-    try:
-        user_data = id_token.verify_oauth2_token(
-            token,
-            requests.Request(),
-            "213955431222-n012vqa4sbicq61669v9hk2qphmrildm.apps.googleusercontent.com",
-        )
-    except ValueError:
-        return HttpResponse(status=403)
+            if response.status_code == 200:
+                access_token = response_data.get("access_token")
+                try:
+                    user_data = requests.get(
+                        "https://api.intra.42.fr/v2/me",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                    )
+                    user_data = user_data.json()
+                
+                    return Response(user_data, status=status.HTTP_200_OK)
 
-    # In a real app, I'd also save any new user here to the database.
-    request.session["user_data"] = user_data
+                except requests.exceptions.RequestException as e:
+                    return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    return redirect("sign_in")
-
-
-def sign_out(request):
-    del request.session["user_data"]
-    return redirect("sign_in")
-
-
-# add user to database
-# from django.http import HttpResponse, HttpRequest
-# from django.utils.decorators import method_decorator
-# from django.views.decorators.csrf import csrf_exempt
-# from rest_framework.views import APIView
-# from . import models
-
-# @method_decorator(csrf_exempt, name='dispatch')
-# class AuthGoogle(APIView):
-#     """
-#     Google calls this URL after the user has signed in with their Google account.
-#     """
-#     def post(self, request, *args, **kwargs):
-#         try:
-#             user_data = self.get_google_user_data(request)
-#         except ValueError:
-#             return HttpResponse("Invalid Google token", status=403)
-
-#         email = user_data["email"]
-#         user, created = models.User.objects.get_or_create(
-#             email=email, defaults={
-#                 "username": email, "sign_up_method": "google",
-#                 "first_name": user_data.get("given_name"),
-#             }
-#         )
-
-#         # Add any other logic, such as setting a http only auth cookie as needed here.
-#         return HttpResponse(status=200)
-
-#     @staticmethod
-#     def get_google_user_data(request: HttpRequest):
-#         token = request.POST['credential']
-#         return id_token.verify_oauth2_token(
-#             token, requests.Request(), os.environ['GOOGLE_OAUTH_CLIENT_ID']
-#         )
+            else:
+                return Response(response_data, status=response.status_code)
+        
+        except requests.exceptions.RequestException as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    

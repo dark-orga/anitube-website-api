@@ -6,19 +6,13 @@ from django.utils import timezone
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, username, password=None, **extra_fields):
-        print(email, username, password)
         if not email:
             raise ValueError("The Email field must be set")
-        print("Email is set")
         email = self.normalize_email(email)
-        print("Email is normalized")
         user = self.model(email=email, username=username, **extra_fields)
-        print("User is created")
         if password is not None:
             user.set_password(password)
-        print("Password is set")
         user.save(using=self._db)
-        print("User is saved")
         return user
 
     def create_superuser(self, email, username, password=None, **extra_fields):

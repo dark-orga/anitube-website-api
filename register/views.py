@@ -28,15 +28,10 @@ class RegisterAPI(APIView):
 
 class LoginAPI(APIView):
     def post(self, request):
-        print(request.data)
         email = request.data["email"]
         password = request.data["password"]
 
-        print(email, password)
-
         user = User.objects.filter(email=email).first()
-
-        print(user)
 
         if user is None:
             raise AuthenticationFailed("User not found!")

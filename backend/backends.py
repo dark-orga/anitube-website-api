@@ -7,7 +7,6 @@ User = get_user_model()
 class GoogleOAuthBackend(BaseBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
         # For Google OAuth, we'll use the email as the username
-        print(f"GoogleOAuthBackend: Attempting to authenticate {username}")
         try:
             user = User.objects.get(email=username)
             return user

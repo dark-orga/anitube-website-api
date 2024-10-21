@@ -56,36 +56,49 @@ class LoginAPI(APIView):
         return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
 
 
+class Redirect42API(APIView):
+    def get(self, request):
+        authorization_url = os.getenv("42_OAUTH_AUTHORIZATION_URL")
+        params = {
+            "client_id": os.getenv("42_OAUTH_CLIENT_ID"),
+            "response_type": "code",
+            "redirect_uri": os.getenv("42_OAUTH_CALLBACK_URL"),
+        }
+        return redirect(f"{authorization_url}?{urlencode(params)}")
+
+
 class Login42API(APIView):
-    def post(self, request):
-        code = request.data.get("code")
-        if not code:
+    def get(self, request):
+        code = request.GET.get("code")
+        if code is None:
             return Response(
                 {"error": "Code not provided."}, status=status.HTTP_400_BAD_REQUEST
             )
 
         data = {
             "grant_type": "authorization_code",
-            "client_id": os.getenv("SOCIAL_AUTH_FORTYTWO_KEY"),
-            "client_secret": os.getenv("SOCIAL_AUTH_FORTYTWO_SECRET"),
-            "redirect_uri": "http://localhost:3000/",
+            "client_id": os.getenv("42_OAUTH_CLIENT_ID"),
+            "client_secret": os.getenv("42_OAUTH_CLIENT_SECRET"),
+            "redirect_uri": os.getenv("42_OAUTH_CALLBACK_URL"),
             "code": code,
         }
 
         try:
-            response = requests.post("https://api.intra.42.fr/oauth/token/", data=data)
+            response = requests.post(os.getenv("42_OAUTH_TOKEN_URL"), data=data)
             response_data = response.json()
 
             if response.status_code == 200:
                 access_token = response_data.get("access_token")
                 try:
                     user_data = requests.get(
-                        "https://api.intra.42.fr/v2/me",
+                        os.getenv("42_OAUTH_USER_URL"),
                         headers={"Authorization": f"Bearer {access_token}"},
                     )
                     user_data = user_data.json()
+                    frontend_url = os.getenv("FRONTEND_ORIGIN_URL")
+                    return redirect(frontend_url, params={"user": user_data})
 
-                    return Response(user_data, status=status.HTTP_200_OK)
+                    # return Response(user_data, status=status.HTTP_200_OK)
 
                 except requests.exceptions.RequestException as e:
                     return Response(
@@ -103,12 +116,12 @@ class Login42API(APIView):
 
 class RedirectGoogleAPI(APIView):
     def get(self, request):
-        authorization_url = "https://accounts.google.com/o/oauth2/v2/auth"
+        authorization_url = os.getenv("GOOGLE_OAUTH_AUTHORIZATION_URL")
         params = {
             "client_id": os.getenv("GOOGLE_OAUTH_CLIENT_ID"),
             "response_type": "code",
             "scope": "https://www.googleapis.com/auth/userinfo.email",
-            "redirect_uri": "http://localhost:8000/api/login/google/callback",
+            "redirect_uri": os.getenv("GOOGLE_OAUTH_CALLBACK_URL"),
         }
         return redirect(f"{authorization_url}?{urlencode(params)}")
 
@@ -121,12 +134,12 @@ class LoginGoogleAPI(APIView):
             return HttpResponse("No code provided", status=400)
 
         # Exchange the code for an access token
-        token_url = "https://oauth2.googleapis.com/token"
+        token_url = os.getenv("GOOGLE_OAUTH_TOKEN_URL")
         data = {
             "client_id": os.getenv("GOOGLE_OAUTH_CLIENT_ID"),
             "client_secret": os.getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
             "code": code,
-            "redirect_uri": "http://localhost:8000/api/login/google/callback",
+            "redirect_uri": os.getenv("GOOGLE_OAUTH_CALLBACK_URL"),
             "grant_type": "authorization_code",
         }
         response = requests.post(token_url, data=data)
@@ -136,7 +149,7 @@ class LoginGoogleAPI(APIView):
             return HttpResponse("Error getting access token", status=400)
 
         # Use the access token to get user information
-        user_info_url = "https://www.googleapis.com/oauth2/v2/userinfo"
+        user_info_url = os.getenv("GOOGLE_OAUTH_USER_URL")
         headers = {"Authorization": f"Bearer {token_data['access_token']}"}
         response = requests.get(user_info_url, headers=headers)
         user_data = response.json()
@@ -155,8 +168,8 @@ class LoginGoogleAPI(APIView):
                 token, created = Token.objects.get_or_create(user=authenticated_user)
                 response_data = {"token": token.key, "email": authenticated_user.email}
                 # Construct redirect URL with encoded token
-                frontend_url = f"http://localhost:3000/?token={token.key}"
-                return redirect(frontend_url)
+                frontend_url = os.getenv("FRONTEND_ORIGIN_URL")
+                return redirect(frontend_url, params={"user": user_data})
             else:
                 return HttpResponse("Error authenticating user", status=401)
         else:
@@ -172,14 +185,12 @@ class LoginGoogleAPI(APIView):
                         "token": token.key,
                         "email": authenticated_user.email,
                     }
-                    frontend_url = f"http://localhost:3000/?token={response_data}"
-                    return redirect(frontend_url)
+                    frontend_url = os.getenv("FRONTEND_ORIGIN_URL")
+                    return redirect(frontend_url, params={"user": response_data})
                 else:
                     return HttpResponse("Error authenticating the new user", status=401)
             except Exception as e:
                 return HttpResponse(str(e), status=500)
-        # Redirect to a success page or potentially request additional user info
-        return redirect("http://localhost:3000/")
 
     def handle_exception(self, exc):
         # Log the exception for debugging

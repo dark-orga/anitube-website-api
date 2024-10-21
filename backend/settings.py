@@ -65,7 +65,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "social_django",
     "corsheaders",
-    "register",
+    "authentication",
     "django_extensions",
     "allauth",
     "allauth.account",
@@ -137,25 +137,6 @@ DATABASES = {
 
 SITE_ID = 1
 
-# Password validation
-# https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
-
-# AUTH_PASSWORD_VALIDATORS = [
-#     {
-#         "NAME":
-#         "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
-#     },
-#     {
-#         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-#     },
-#     {
-#         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-#     },
-#     {
-#         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-#     },
-# ]
-
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
         "SCOPE": [
@@ -204,7 +185,7 @@ STATIC_URL = "/static/"
 # STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # custom user model
-AUTH_USER_MODEL = "register.User"
+AUTH_USER_MODEL = "authentication.User"
 
 # Add this if you have a static folder in your project directory
 # STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]

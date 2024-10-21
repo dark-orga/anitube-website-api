@@ -1,13 +1,54 @@
+from django.contrib.auth.models import (AbstractBaseUser, BaseUserManager,
+                                        PermissionsMixin)
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
 
 
-class User(AbstractUser):
-    username = models.CharField(max_length=255, default="")
-    email = models.CharField(max_length=255, unique=True)
+class CustomUserManager(BaseUserManager):
+    def create_user(self, email, username, password=None, **extra_fields):
+        print(email, username, password)
+        if not email:
+            raise ValueError("The Email field must be set")
+        print("Email is set")
+        email = self.normalize_email(email)
+        print("Email is normalized")
+        user = self.model(email=email, username=username, **extra_fields)
+        print("User is created")
+        if password is not None:
+            user.set_password(password)
+        print("Password is set")
+        user.save(using=self._db)
+        print("User is saved")
+        return user
+
+    def create_superuser(self, email, username, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+
+        return self.create_user(email, username, password, **extra_fields)
+
+
+class User(AbstractBaseUser, PermissionsMixin):
+    email = models.EmailField(unique=True)
+    username = models.CharField(max_length=255, unique=True)
     password = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    date_joined = models.DateTimeField(default=timezone.now)
+
+    objects = CustomUserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
+
     def __str__(self):
-        return self.username + " - " + self.email
+        return f"{self.username} - {self.email} - {self.password}"
+
+    class Meta:
+        verbose_name = "user"
+        verbose_name_plural = "users"

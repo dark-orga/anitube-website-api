@@ -54,6 +54,7 @@ pathspec==0.12.1
 pexpect==4.9.0
 pgcli==4.1.0
 pgspecial==2.1.2
+pillow==11.0.0
 pkginfo==1.11.1
 platformdirs==4.3.6
 pluggy==1.5.0

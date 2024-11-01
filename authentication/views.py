@@ -1,15 +1,13 @@
-import datetime
 import os
 
-import jwt
 import requests
 from django.contrib.auth import authenticate, login
 from django.shortcuts import HttpResponse, redirect
 from django.utils.http import urlencode
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User
 from .serializers import UserSerializer
@@ -39,29 +37,28 @@ class LoginAPI(APIView):
 
         if user is None:
             return Response(
-                {"error": "User not found!"}, status=status.HTTP_401_UNAUTHORIZED
+                {"error": "User not found!"},
+                status=status.HTTP_401_UNAUTHORIZED
             )
 
         if not user.check_password(password):
             return Response(
-                {"error": "Incorrect password!"}, status=status.HTTP_401_UNAUTHORIZED
+                {"error": "Incorrect password!"},
+                status=status.HTTP_401_UNAUTHORIZED
             )
 
-        payload = {
-            "id": user.id,
-            "username": user.username,
-            "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=60),
-            "iat": datetime.datetime.utcnow(),
-        }
+        # Generate token
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
 
-        token = jwt.encode(payload, "secret", algorithm="HS256")
+        response = redirect(os.getenv("FRONTEND_ORIGIN_URL"))
+        response.set_cookie(
+            key="auth_token",
+            value=access_token,
+            httponly=True
+        )
 
-        response = Response()
-
-        response.set_cookie(key="jwt", value=token, httponly=True)
-        response.data = {"jwt": token}
-
-        return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
+        return response
 
 
 class Redirect42API(APIView):
@@ -80,7 +77,8 @@ class Login42API(APIView):
         code = request.GET.get("code")
         if code is None:
             return Response(
-                {"error": "Code not provided."}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Code not provided."},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         data = {
@@ -91,35 +89,44 @@ class Login42API(APIView):
             "code": code,
         }
 
-        try:
-            response = requests.post(os.getenv("42_OAUTH_TOKEN_URL"), data=data)
-            response_data = response.json()
-
-            if response.status_code == 200:
-                access_token = response_data.get("access_token")
-                try:
-                    user_data = requests.get(
-                        os.getenv("42_OAUTH_USER_URL"),
-                        headers={"Authorization": f"Bearer {access_token}"},
-                    )
-                    user_data = user_data.json()
-                    frontend_url = os.getenv("FRONTEND_ORIGIN_URL")
-                    return redirect(frontend_url, params={"user": user_data})
-
-                    # return Response(user_data, status=status.HTTP_200_OK)
-
-                except requests.exceptions.RequestException as e:
-                    return Response(
-                        {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
-
-            else:
-                return Response(response_data, status=response.status_code)
-
-        except requests.exceptions.RequestException as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        response = requests.post(os.getenv("42_OAUTH_TOKEN_URL"), data=data)
+        response_data = response.json()
+        if response.status_code == 200:
+            access_token = response_data.get("access_token")
+            user_data = requests.get(
+                os.getenv("42_OAUTH_USER_URL"),
+                headers={"Authorization": f"Bearer {access_token}"},
             )
+            user_data = user_data.json()
+
+            if "email" not in user_data:
+                return HttpResponse("Error getting user information",
+                                    status=status.HTTP_400_BAD_REQUEST)
+
+            user_email = user_data["email"]
+
+            # Authenticate or create user based on email
+            user = User.objects.filter(email=user_email).first()
+            if user is None:
+                user = User.objects.create_user(
+                        email=user_email, username=user_email
+                    )
+            authenticated_user = authenticate(request, username=user_email)
+            if authenticated_user is not None:
+                login(request, authenticated_user)
+
+                # Generate token
+                refresh = RefreshToken.for_user(user)
+                access_token = str(refresh.access_token)
+                response = redirect(os.getenv("FRONTEND_ORIGIN_URL"))
+                response.set_cookie(key="auth_token",
+                                    value=access_token, httponly=True)
+                return response
+            else:
+                return HttpResponse(
+                    "Error authenticating user",
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
 
 
 class RedirectGoogleAPI(APIView):
@@ -169,74 +176,24 @@ class LoginGoogleAPI(APIView):
 
         # Authenticate or create user based on email
         user = User.objects.filter(email=user_email).first()
-        if user is not None:
-            authenticated_user = authenticate(request, username=user_email)
-            if authenticated_user is not None:
-                login(request, authenticated_user)
-                token, created = Token.objects.get_or_create(user=authenticated_user)
-                response_data = {"token": token.key, "email": authenticated_user.email}
-                # Construct redirect URL with encoded token
-                frontend_url = os.getenv("FRONTEND_ORIGIN_URL")
-                return redirect(frontend_url, params={"user": user_data})
-            else:
-                return HttpResponse("Error authenticating user", status=401)
+        if user is None:
+            user = User.objects.create_user(
+                    email=user_email, username=user_email
+                )
+
+        authenticated_user = authenticate(request, username=user_email)
+        if authenticated_user is not None:
+            login(request, authenticated_user)
+
+            # Generate token
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            response = redirect(os.getenv("FRONTEND_ORIGIN_URL"))
+            response.set_cookie(key="auth_token",
+                                value=access_token, httponly=True)
+            return response
         else:
-            try:
-                user = User.objects.create_user(email=user_email, username=user_email)
-                authenticated_user = authenticate(request, username=user_email)
-                if authenticated_user is not None:
-                    login(request, authenticated_user)
-                    token, created = Token.objects.get_or_create(
-                        user=authenticated_user
-                    )
-                    response_data = {
-                        "token": token.key,
-                        "email": authenticated_user.email,
-                    }
-                    frontend_url = os.getenv("FRONTEND_ORIGIN_URL")
-                    return redirect(frontend_url, params={"user": response_data})
-                else:
-                    return HttpResponse("Error authenticating the new user", status=401)
-            except Exception as e:
-                return HttpResponse(str(e), status=500)
-
-    def handle_exception(self, exc):
-        # Log the exception for debugging
-        print(f"An error occurred: {str(exc)}")
-        # You might want to add more sophisticated logging here
-
-        # Return a user-friendly error response
-        return Response(
-            {"error": "An error occurred during the login process. Please try again."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-
-# @csrf_exempt
-# def sign_in(request):
-#     return render(request, "home.html")
-
-
-# @csrf_exempt
-# def auth_receiver(request):
-#     """
-#     Google calls this URL after the user has signed in with their Google account.
-#     """
-#     token = request.POST["credential"]
-#     try:
-#         user_data = id_token.verify_oauth2_token(
-#             token,
-#             requests.Request(),
-#             os.getenv("GOOGLE_OAUTH_CLIENT_ID"),
-#         )
-#     except ValueError:
-#         return HttpResponse(status=403)
-
-#     # In a real app, I'd also save any new user here to the database.
-#     request.session["user_data"] = user_data
-#     return redirect("sign_in")
-
-
-# def sign_out(request):
-#     del request.session["user_data"]
-#     return redirect("sign_in")
+            return HttpResponse(
+                "Error authenticating user",
+                status=status.HTTP_401_UNAUTHORIZED
+            )

@@ -5,11 +5,9 @@ import jwt
 import requests
 from django.contrib.auth import authenticate, login
 from django.shortcuts import HttpResponse, redirect
-# from google.auth.transport import requests
 from django.utils.http import urlencode
 from rest_framework import status
 from rest_framework.authtoken.models import Token
-from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -28,16 +26,26 @@ class RegisterAPI(APIView):
 
 class LoginAPI(APIView):
     def post(self, request):
-        email = request.data["email"]
-        password = request.data["password"]
+        email = request.data.get("email")
+        password = request.data.get("password")
+
+        if email is None or password is None:
+            return Response(
+                {"error": "Email and password are required!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         user = User.objects.filter(email=email).first()
 
         if user is None:
-            raise AuthenticationFailed("User not found!")
+            return Response(
+                {"error": "User not found!"}, status=status.HTTP_401_UNAUTHORIZED
+            )
 
         if not user.check_password(password):
-            raise AuthenticationFailed("Incorrect password!")
+            return Response(
+                {"error": "Incorrect password!"}, status=status.HTTP_401_UNAUTHORIZED
+            )
 
         payload = {
             "id": user.id,

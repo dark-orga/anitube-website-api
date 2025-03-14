@@ -66,11 +66,12 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "social_django",
     "corsheaders",
-    "authentication",
     "django_extensions",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "authentication",
+    "anime"
 ]
 
 MIDDLEWARE = [

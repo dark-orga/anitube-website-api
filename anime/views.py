@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..models import AnimeCache, UserWatchlist
+from .models import AnimeCache, UserWatchlist
 from .serializers import AnimeCacheSerializer, UserWatchlistSerializer
 
 # Jikan API base URL
